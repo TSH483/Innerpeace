@@ -1,0 +1,23 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+.venv/
+node_modules
+node_modules/
+generated_outputs/
+*.egg-info/
+dist/
+build/
+.idea/
+.vscode/
+results.json
+results
+
+# Tests
+tests/**/*.js
+tests/**/*.png
+tests/**/*.json
+
+# Test run outputs (e.g. tests/prompts/round_14/) — keep prompt .txt inputs
+tests/prompts/*/

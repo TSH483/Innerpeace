@@ -124,10 +124,24 @@ material — pick exact PBR params, don't improvise):
   leather                     MeshStandardMaterial  metalness 0.0 roughness 0.7
   clear glass                 MeshPhysicalMaterial  metalness 0.0 roughness 0.05
                               transmission 0.95 ior 1.5 transparent true
-  frosted glass               MeshPhysicalMaterial  metalness 0.0 roughness 0.4
-                              transmission 0.7 ior 1.5 transparent true
+                              color #e8f0f8 (faint blue tint) or #ffffff
+  frosted glass / satin glass MeshPhysicalMaterial  metalness 0.0 roughness 0.35
+                              transmission 0.65 ior 1.5 transparent true
+                              color #d8dde0 (slightly warm gray)
+  candle wax                  MeshStandardMaterial  metalness 0.0 roughness 0.6
+                              color per layer (#f5e6c8 ivory, #e8c090 honey,
+                              #c06030 dark, #e8e0d0 white — match reference)
+                              DO NOT use transmission; wax is opaque-to-translucent
   emissive / LED              MeshStandardMaterial  emissive=color emissiveIntensity 1.0
   generic / unsure            MeshStandardMaterial  metalness 0.0 roughness 0.7
+
+Glass/transparency decision rule — read the reference carefully:
+- If the object body is CLEARLY SEE-THROUGH (objects visible behind it):
+  use clear glass (transmission 0.95).
+- If the object looks milky, hazy, or light-diffusing but NOT fully
+  transparent: use frosted glass (transmission 0.65, roughness 0.35).
+- If the object is a wax candle, opaque ceramic, or solid plastic that
+  merely has a smooth finish: do NOT add transmission at all.
 
 Modeling strategy:
 - Translate the reference image into a clear part hierarchy.
@@ -226,6 +240,131 @@ Proportion tuning shortcut:
   `mesh.scale.set(sx, sy, sz)` BEFORE adding to group, NOT rebuilding the
   geometry with new params. Rebuilding is necessary only when the primitive
   type itself must change (e.g. cylinder → cone, box → extrude).
+
+Faceted gem / crystal / jewel modeling handbook:
+- NEVER use SphereGeometry for a cut gemstone. Spheres produce the single
+  most common failure in gem renders — they look like glass balls, not jewels.
+- For the gem body, pick from:
+    · `OctahedronGeometry(r, 0)` — 8 triangular facets; perfect for a
+      simple diamond (square girdle, pyramid above and below).
+    · `IcosahedronGeometry(r, 0)` — 20 triangular facets; rounder brilliant
+      cut appearance, good for round sapphires, rubies, diamonds.
+    · `DodecahedronGeometry(r, 0)` — 12 pentagonal facets; chunky cut stones.
+    · Custom convex shape via two `CylinderGeometry` cones joined at the
+      girdle: `CylinderGeometry(girdle_r, 0, crown_h, 8)` (crown, apex up)
+      placed above `CylinderGeometry(0, girdle_r, pavilion_h, 8)` (pavilion,
+      apex down). This produces a clear brilliant-cut silhouette.
+- For rectangular / step-cut stones (emerald, baguette):
+    · Use a flat `BoxGeometry` with chamfered appearance: a central box plus
+      four thin wedge-like boxes around the edges, or a shallow extrude of a
+      rectangular `Shape` with bevel.
+- For oval / pear / cushion cuts: start with `IcosahedronGeometry` and apply
+  `mesh.scale.set(sx, 1, sz)` to stretch or squash the girdle axis.
+- Material for gems: `MeshPhysicalMaterial` with
+    `color: <gem_hex>`, `metalness: 0`, `roughness: 0.05`,
+    `transmission: 0.7`, `ior: 2.4`, `transparent: true`.
+  For opaque stones (turquoise, jade, lapis): `MeshStandardMaterial`
+    `metalness: 0`, `roughness: 0.3` with appropriate color.
+- For a ring / pendant setting: the gem sits in a prong mount. Model 3–6
+  thin cylinder prongs (`CylinderGeometry(0.01, 0.01, prong_h, 6)`) arranged
+  radially around the gem at its girdle equator, pointing upward, and a
+  flat ring band below.
+- Gem color reference: diamond #e8f0ff (icy white), ruby #c0002a,
+  emerald #1a6b3c, sapphire #0f3d8c, amethyst #7b4fa6, topaz #f5a623,
+  aquamarine #6dcfe0, citrine #f0a000, turquoise #45b0a0.
+
+Text / label / inscription simulation handbook:
+- Three.js `TextGeometry` requires loading an external font file, which is
+  FORBIDDEN by the no-loaders rule. Do NOT attempt to use TextGeometry,
+  FontLoader, or any text-mesh approach that loads assets.
+- When the reference shows a label, sign, packaging text, engraving, or
+  printed brand name, represent it with a FLAT PANEL DECAL, not raw text:
+    · Cut a thin `BoxGeometry(w, h, 0.003)` or `PlaneGeometry(w, h)` in the
+      label color and place it just above the surface (offset ~0.004 along
+      the surface normal). This preserves placement, color, and proportions.
+    · For multi-line labels on packaging boxes (e.g. tea box, candy jar):
+      stack 2–4 thin colored rectangles of different widths to approximate
+      the text-block visual weight. Use the dominant label background color
+      for the panel and a darker or lighter strip for the text band.
+    · For engraved/embossed inscriptions (watch dial brand text, pen
+      engraving): add a very thin `PlaneGeometry` in a slightly lighter or
+      darker shade than the base, placed flush with the surface.
+    · For dial numbers / hour indices: use twelve small thin rectangular
+      `BoxGeometry(0.02, 0.005, 0.003)` meshes placed radially at each
+      hour position (see Watch / clock / dial handbook below) rather than
+      trying to render numerals.
+- NEVER attempt to encode letter shapes as geometry — it produces unreadable
+  noise and always fails the critic check for "incorrect text content".
+- The visual critic treats a correctly-placed flat panel as "text present",
+  which is far better than the wrong-text penalty from mangled glyphs.
+
+Watch / clock / dial modeling handbook:
+- Establish shared dimensions first: `caseR`, `caseH`, `dialR`, `dialH`,
+  `bezelW`, `lugsH`, `crownR`, `crownH`, `handLen`.
+- **Case body**: `CylinderGeometry(caseR, caseR, caseH, 64)` — smooth sides.
+  Apply the case metal material (brushed or polished). Rotate if needed so
+  the watch face points +Z.
+- **Dial face**: flat `CylinderGeometry(dialR, dialR, dialH, 64)` slightly
+  inset into the case front. Dial background color from reference (white,
+  black, blue, silver, etc.). `MeshStandardMaterial metalness:0 roughness:0.3`.
+- **Bezel**: `TorusGeometry(caseR, bezelW, 6, 64)` sitting on top of the
+  case rim; may be smooth or fluted. Match the case metal or use a contrasting
+  ceramic/gold color. Rotate so it lies flat (rotation.x = Math.PI/2).
+- **Hour markers**: place 12 thin `BoxGeometry(0.015, 0.004, 0.003)` meshes
+  in a loop at angles `(i / 12) * Math.PI * 2`:
+  ```
+  for (let i = 0; i < 12; i++) {
+    const angle = (i / 12) * Math.PI * 2;
+    const marker = new THREE.Mesh(markerGeom, markerMat);
+    marker.position.set(
+      Math.sin(angle) * (dialR * 0.82),
+      dialH / 2 + 0.002,
+      Math.cos(angle) * (dialR * 0.82),
+    );
+    marker.rotation.y = angle;
+    dial_group.add(marker);
+  }
+  ```
+  For Arabic numerals: substitute a flat panel (see Text handbook above).
+- **Hands** (hour, minute, optional seconds):
+    · Hour hand: `BoxGeometry(handW, handLen * 0.55, 0.004)` with one end
+      tapered (or use a thin elongated mesh). Pivot at dial center.
+    · Minute hand: same but length `handLen * 0.80`, narrower.
+    · Center pivot cap: small `CylinderGeometry(0.012, 0.012, 0.008, 16)`.
+    · Set hand rotations so they read approximately 10:10 (hour at 10, minute
+      at 2) — the classic display position that shows both hands clearly.
+- **Crown**: small `CylinderGeometry(crownR, crownR, crownH, 16)` placed on
+  the case right side (positive X), with rotation.z = Math.PI/2.
+  If knurled, use a slightly higher roughness or add small ridges.
+- **Lugs**: 4 rectangular `BoxGeometry(lugW, lugsH, lugD)` attached at the
+  12/6 o'clock case rim (top/bottom, ±Z). Match case metal.
+- **Strap / bracelet**: flat `BoxGeometry(strapW, strapH, strapD)` extending
+  above and below the case along ±Z. Leather: roughness 0.7, no metalness.
+  Metal bracelet: roughness 0.3, metalness 0.5, link color from reference.
+- **Date window**: if visible, a thin `BoxGeometry(0.04, 0.025, 0.003)` placed
+  at the 3 o'clock position on the dial, slightly lighter or with a white fill.
+- Material: match the reference — rose gold (#c89060), yellow gold (#d4a030),
+  silver steel (#b0b8c0), black PVD (#2a2a2a), titanium (#8a8a96).
+
+Color reading accuracy guidance:
+- Before writing any material `color:` value, examine the reference image
+  carefully for warm/cool undertone and lightness level.
+- Common traps to avoid:
+    · Wood: real wood is WARM brown (#7a4a28 walnut, #a0622a oak, #c8a060
+      pine, #3a2010 dark wenge). Never default to gray-brown or cool taupe.
+    · Metals: gold is warm yellow (#d4a030), NOT gray; copper is orange-brown
+      (#b87333); bronze is darker (#8c6a30). Steel is a COOL mid-gray
+      (#8a9098), not warm.
+    · Fabrics: reference the actual hue — a "blue sofa" may be navy (#1a2f5a),
+      cobalt (#1a4db0), sky (#5090d0), or teal (#1a7060). Read the reference.
+    · Ceramics/glazes: often have a slight warm or cool cast — read it.
+    · Plastics: bright toy colors are highly saturated; off-white is NOT
+      pure white (#f5f0eb is typical off-white).
+- If in doubt, lean slightly toward the warmer / more saturated end —
+  under-saturated and too-gray are the most common coder errors.
+- Match LIGHTNESS from the reference: a "light beige" object that renders
+  as near-white (#f0ece6) is wrong if the reference is a distinct mid-tone
+  (#c8b898). Compare the rendering histogram mentally to the reference.
 """
     + "\n\n---\n\n"
     + THREEJS_OUTPUT_SPEC_REFERENCE
@@ -364,8 +503,13 @@ Per-kind playbook:
 - `wrong_material`     → swap material type (`MeshStandardMaterial` vs
   `MeshPhysicalMaterial` for glass with `transmission` + `ior`) and PBR
   params (metalness, roughness) per your system prompt's normalization.
+  For glass: apply the glass/transparency decision rule from your system
+  prompt — clear (0.95) vs frosted (0.65) based on the reference image.
 - `missing_part`       → add a new mesh for the part the critic names;
   place it as described. Reuse existing materials where materials match.
+  If the missing part is a gemstone, use the Faceted gem handbook —
+  NOT a sphere. If it is a text label, use the Text/label handbook.
+  If it is a watch crown/bezel/hand, use the Watch/clock handbook.
 - `extra_part`         → delete the relevant group.add(...) line and the
   mesh's geometry/material if no longer used.
 - `wrong_count`        → adjust instanced_group count or duplicate/remove
@@ -373,6 +517,9 @@ Per-kind playbook:
 - `wrong_position`     → move the mesh (or its parent group) along the
   axis the description names.
 - `wrong_orientation`  → add or adjust `mesh.rotation.<axis>`.
+- `wrong_color`        → reread the Color reading accuracy guidance from
+  your system prompt before picking the new hex; avoid gray-brown for wood,
+  gray for gold, or pure white for off-white objects.
 
 Vehicle repair priority:
 - For cars, bikes, scooters, motorcycles, aircraft, and drones, fix object
@@ -472,8 +619,13 @@ Per-kind playbook:
 - `wrong_material`     → swap material type (`MeshStandardMaterial` vs
   `MeshPhysicalMaterial` for glass with `transmission` + `ior`) and PBR
   params (metalness, roughness) per your system prompt's normalization.
+  For glass: apply the glass/transparency decision rule from your system
+  prompt — clear (0.95) vs frosted (0.65) based on the reference image.
 - `missing_part`       → add a new mesh for the part from the OSD; place
   it as described. Reuse existing materials where materials match.
+  If the missing part is a gemstone, use the Faceted gem handbook —
+  NOT a sphere. If it is a text label, use the Text/label handbook.
+  If it is a watch crown/bezel/hand, use the Watch/clock handbook.
 - `extra_part`         → delete the relevant group.add(...) line and the
   mesh's geometry/material if no longer used.
 - `wrong_count`        → adjust instanced_group count or duplicate/remove
@@ -481,6 +633,9 @@ Per-kind playbook:
 - `wrong_position`     → move the mesh (or its parent group) along the
   axis the description names.
 - `wrong_orientation`  → add or adjust `mesh.rotation.<axis>`.
+- `wrong_color`        → reread the Color reading accuracy guidance from
+  your system prompt before picking the new hex; avoid gray-brown for wood,
+  gray for gold, or pure white for off-white objects.
 
 Vehicle repair priority:
 - For cars, bikes, scooters, motorcycles, aircraft, and drones, fix object

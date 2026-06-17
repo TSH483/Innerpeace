@@ -270,6 +270,24 @@ Critical API rules (the JS checker will reject these silently):
   `CubicBezierCurve` whose `getSpacedPoints()` returns `Vector2[]` directly.
 - `TubeGeometry` / `CatmullRomCurve3` paths MUST use `new THREE.Vector3(x, y, z)`.
 
+Common visual fixes (apply when the reference clearly requires them):
+- **Gemstones showing as spheres**: replace `SphereGeometry` with
+  `OctahedronGeometry(r, 0)` or `IcosahedronGeometry(r, 0)` and set the
+  material to `MeshPhysicalMaterial` with `transmission:0.7, ior:2.4,
+  roughness:0.05, metalness:0`.
+- **Wrong glass type**: for frosted/milky glass use `roughness:0.35,
+  transmission:0.65`; for clear glass use `roughness:0.05, transmission:0.95`.
+  For solid wax or opaque objects, remove transmission entirely.
+- **Text/labels showing garbled glyphs**: replace text meshes with flat
+  `BoxGeometry(w, h, 0.003)` panels in the label's background color, placed
+  just above the surface. Do not attempt to render actual characters.
+- **Missing watch/clock parts**: for bezel use `TorusGeometry`; for hour
+  markers use 12 small boxes at `(i/12)*Math.PI*2` radial positions; for
+  crown use a small cylinder on the case side.
+- **Wrong color tone**: for wood use warm browns (#7a4a28–#c8a060); for gold
+  use #d4a030; for steel use cool gray #8a9098; do not default to gray-brown
+  for warm materials.
+
 Return ONLY the full corrected JavaScript module source — no prose, no markdown fences.
 """
 )
